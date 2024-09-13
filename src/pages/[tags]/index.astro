@@ -1,0 +1,35 @@
+---
+import { getCollection } from "astro:content";
+import Layout from "@layouts/layout.astro";
+import FileStructure from "@layouts/file-structure.astro";
+
+export async function getStaticPaths() {
+  const content = await getCollection("all");
+
+  const tags: Record<string, number> = {};
+
+  content.forEach((entry) => {
+    entry.data.tags.forEach((tag) => {
+      tags[tag] = (tags[tag] ?? 0) + 1;
+    });
+  });
+
+  return Object.keys(tags).map((tag) => ({
+    params: { tags: tag.replaceAll(" ", "-") },
+    props: {
+      entries: content.filter((post) => post.data.tags.includes(tag)),
+      tag: tag,
+      tags,
+    },
+  }));
+}
+const { entries, tag, tags } = Astro.props;
+---
+
+<Layout title="">
+  <FileStructure currentTag={tag}>
+    <p>so empty</p>
+  </FileStructure>
+</Layout>
+
+<style></style>

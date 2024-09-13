@@ -1,0 +1,93 @@
+---
+import { getCollection } from "astro:content";
+
+interface Props {
+  currentTag?: string;
+  currentPost?: string;
+}
+
+const { currentTag, currentPost } = Astro.props;
+
+const content = await getCollection("all");
+
+const tags: Record<string, number> = {};
+
+content.forEach((entry) => {
+  entry.data.tags.forEach((tag) => {
+    tags[tag] = (tags[tag] ?? 0) + 1;
+  });
+});
+
+console.log({
+  currentTag,
+  filter: content.filter((post) =>
+    currentTag ? post.data.tags.includes(currentTag) : false
+  ),
+});
+const currentPosts = content
+  .filter((post) => (currentTag ? post.data.tags.includes(currentTag) : false))
+  .map((post) => ({
+    fileName: post.slug,
+    ...post.data,
+  }));
+---
+
+<body>
+  <nav>
+    <h1>Content</h1>
+    <ul>
+      {
+        Object.entries(tags).map(([key, value]) => (
+          <li>
+            <a
+              href={`/${key.replaceAll(" ", "-")}`}
+              aria-current={key === currentTag}
+            >
+              {key} - {value}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+  {
+    currentTag && (
+      <nav aria-label="secondary">
+        <ul>
+          {currentPosts.map((entry) => (
+            <li>
+              <a
+                href={`/${currentTag.replaceAll(" ", "-")}/${entry.fileName}`}
+                aria-current={entry.fileName === currentPost}
+              >
+                <h3>{entry.title}</h3>
+                <p>{entry.description}</p>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )
+  }
+
+  <main>
+    <slot />
+  </main>
+</body>
+
+<style>
+  nav {
+    padding: 2em;
+    border-inline-end: 2px solid black;
+  }
+
+  main {
+    padding: 2em;
+  }
+
+  body {
+    display: grid;
+    grid-template-columns: max-content max-content 1fr;
+    grid-auto-flow: column;
+  }
+</style>

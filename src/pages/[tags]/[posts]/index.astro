@@ -1,0 +1,40 @@
+---
+import { getCollection } from "astro:content";
+import Layout from "@layouts/layout.astro";
+import FileStructure from "@layouts/file-structure.astro";
+
+export async function getStaticPaths() {
+  const content = await getCollection("all");
+
+  const tags: Record<string, number> = {};
+
+  content.forEach((entry) => {
+    entry.data.tags.forEach((tag) => {
+      tags[tag] = (tags[tag] ?? 0) + 1;
+    });
+  });
+
+  return Object.keys(tags).flatMap((tag) =>
+    content
+      .filter((post) => post.data.tags.includes(tag))
+      .map((post) => ({
+        params: {
+          tags: tag.replaceAll(" ", "-"),
+          posts: post.slug,
+        },
+        props: {
+          post,
+        },
+      }))
+  );
+}
+const { post } = Astro.props;
+const { tags, posts } = Astro.params;
+const { Content } = await post.render();
+---
+
+<Layout title="">
+  <FileStructure currentTag={tags.replaceAll("-", " ")} currentPost={posts}>
+    <Content />
+  </FileStructure>
+</Layout>
