@@ -1,21 +1,6 @@
 ---
 import Layout from "@layouts/layout.astro";
 import FileStructure from "@layouts/file-structure.astro";
-import { type CollectionEntry, getCollection } from "astro:content";
-
-type Entry = CollectionEntry<"all">;
-
-const content = await getCollection("all", ({ data }: Entry) => {
-  return import.meta.env.PROD ? data.status !== "draft" : true;
-});
-
-const tags: Record<string, number> = {};
-
-content.forEach((entry: Entry) => {
-  entry.data.tags.forEach((tag) => {
-    tags[tag] = (tags[tag] ?? 0) + 1;
-  });
-});
 ---
 
 <Layout title="intro">

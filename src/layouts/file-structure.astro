@@ -1,5 +1,7 @@
 ---
 import { getCollection } from "astro:content";
+import { sumTags } from "@content/sum-tags";
+import { slugToUrl, urlToSlug } from "@content/slug-to-url";
 
 interface Props {
   currentTag?: string;
@@ -9,55 +11,93 @@ interface Props {
 const { currentTag, currentPost } = Astro.props;
 
 const content = await getCollection("all");
+const tags = content.reduce(sumTags, {});
+const sluggifiedTag = currentTag ? urlToSlug(currentTag) : "";
 
-const tags: Record<string, number> = {};
+const mostRecentPosts = content
+  .toSorted(
+    (a, b) => b.data.creationDate.getTime() - a.data.creationDate.getTime()
+  )
+  .slice(0, 2);
 
-content.forEach((entry) => {
-  entry.data.tags.forEach((tag) => {
-    tags[tag] = (tags[tag] ?? 0) + 1;
-  });
-});
+const mostRecentUpdate = content
+  .filter((post) => post.data.updateDate)
+  .toSorted(
+    (a, b) => b.data.updateDate!.getTime() - a.data.updateDate!.getTime()
+  )
+  .slice(0, 2);
 
-console.log({
-  currentTag,
-  filter: content.filter((post) =>
-    currentTag ? post.data.tags.includes(currentTag) : false
-  ),
-});
 const currentPosts = content
-  .filter((post) => (currentTag ? post.data.tags.includes(currentTag) : false))
+  .filter((post) => post.data.tags.includes(sluggifiedTag))
   .map((post) => ({
     fileName: post.slug,
     ...post.data,
   }));
+
+//todo: sort
 ---
 
 <body>
   <nav>
     <h1>Content</h1>
-    <ul>
-      {
-        Object.entries(tags).map(([key, value]) => (
-          <li>
-            <a
-              href={`/${key.replaceAll(" ", "-")}`}
-              aria-current={key === currentTag}
-            >
-              {key} - {value}
-            </a>
-          </li>
-        ))
-      }
-    </ul>
+    <details>
+      <summary>most recent</summary>
+      <ul>
+        {
+          mostRecentPosts.map((recentPost) => (
+            <li>
+              <a href={`/${recentPost.data.tags[0]}/`}>
+                {recentPost.data.title}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </details>
+    {
+      mostRecentUpdate.length > 0 && (
+        <details>
+          <summary>recently updated</summary>
+          <ul>
+            {mostRecentUpdate.map((recentPost) => (
+              <li>
+                <a href={`/${recentPost.data.tags[0]}/`}>
+                  {recentPost.data.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )
+    }
+    <details open>
+      <summary>tags</summary>
+      <ul>
+        {
+          Object.entries(tags)
+            .toSorted((a, b) => b[1] - a[1])
+            .map(([tagName, amount]) => (
+              <li data-value={tagName} data-amount={amount}>
+                <a
+                  href={`/${slugToUrl(tagName)}`}
+                  aria-current={tagName === currentTag}
+                >
+                  {tagName} - {amount}
+                </a>
+              </li>
+            ))
+        }
+      </ul>
+    </details>
   </nav>
   {
-    currentTag && (
+    currentPosts.length > 0 && (
       <nav aria-label="secondary">
         <ul>
           {currentPosts.map((entry) => (
             <li>
               <a
-                href={`/${currentTag.replaceAll(" ", "-")}/${entry.fileName}`}
+                href={`/${sluggifiedTag}/${entry.fileName}`}
                 aria-current={entry.fileName === currentPost}
               >
                 <h3>{entry.title}</h3>
@@ -87,7 +127,7 @@ const currentPosts = content
 
   body {
     display: grid;
-    grid-template-columns: max-content max-content 1fr;
+    grid-template-columns: max-content minmax(12em, 1fr) 4fr;
     grid-auto-flow: column;
   }
 </style>

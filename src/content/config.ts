@@ -1,4 +1,4 @@
-import { z, defineCollection } from 'astro:content';
+import { z, defineCollection, reference } from 'astro:content';
 
 const allContent = defineCollection({
   type: 'content', // v2.5.0 and later
@@ -9,6 +9,7 @@ const allContent = defineCollection({
     creationDate: z.coerce.date(),
     updateDate: z.coerce.date().optional(),
     description:  z.string().optional(),
+    relatedContent: z.array(reference('all')).optional(),
   }),
 });
 

@@ -2,28 +2,24 @@
 import { getCollection } from "astro:content";
 import Layout from "@layouts/layout.astro";
 import FileStructure from "@layouts/file-structure.astro";
+import { sumTags } from "@content/sum-tags";
+import { slugToUrl } from "@content/slug-to-url";
 
 export async function getStaticPaths() {
   const content = await getCollection("all");
 
-  const tags: Record<string, number> = {};
-
-  content.forEach((entry) => {
-    entry.data.tags.forEach((tag) => {
-      tags[tag] = (tags[tag] ?? 0) + 1;
-    });
-  });
+  const tags = content.reduce(sumTags, {});
 
   return Object.keys(tags).map((tag) => ({
-    params: { tags: tag.replaceAll(" ", "-") },
+    params: { tag: slugToUrl(tag) },
     props: {
       entries: content.filter((post) => post.data.tags.includes(tag)),
-      tag: tag,
+      tag,
       tags,
     },
   }));
 }
-const { entries, tag, tags } = Astro.props;
+const { tag } = Astro.props;
 ---
 
 <Layout title="">

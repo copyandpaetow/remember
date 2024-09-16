@@ -1,0 +1,52 @@
+---
+import { getCollection, getEntry } from "astro:content";
+import Layout from "@layouts/layout.astro";
+import FileStructure from "@layouts/file-structure.astro";
+import { sumTags } from "src/content/sum-tags";
+import { slugToUrl } from "src/content/slug-to-url";
+
+export async function getStaticPaths() {
+  const content = await getCollection("all");
+
+  const tags = content.reduce(sumTags, {});
+
+  return Object.keys(tags).flatMap((tag) =>
+    content
+      .filter((post) => post.data.tags.includes(tag))
+      .map((post) => ({
+        params: {
+          tag: slugToUrl(tag),
+          post: post.slug,
+        },
+        props: {
+          post,
+        },
+      }))
+  );
+}
+const { post: postComponent } = Astro.props;
+const { tag, post } = Astro.params;
+const { Content } = await postComponent.render();
+
+const entry = await getEntry("all", post);
+const { tags, title } = entry.data;
+---
+
+<Layout title="">
+  <FileStructure currentTag={tag} currentPost={post}>
+    <header>
+      <h1>{title}</h1>
+      <ul>
+        {
+          tags.map((currentTag) => (
+            <li>
+              <a href={`/${slugToUrl(currentTag)}/`}>{currentTag}</a>
+            </li>
+          ))
+        }
+      </ul>
+    </header>
+
+    <Content />
+  </FileStructure>
+</Layout>
