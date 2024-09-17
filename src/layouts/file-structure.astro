@@ -1,18 +1,18 @@
 ---
 import { getCollection } from "astro:content";
 import { sumTags } from "@content/sum-tags";
-import { slugToUrl, urlToSlug } from "@content/slug-to-url";
+import { tagToUrl, removeFolderFromSlug } from "@content/transform-tags";
+import type { Entry } from "@content/types";
 
 interface Props {
   currentTag?: string;
-  currentPost?: string;
+  currentSlug?: string;
 }
 
-const { currentTag, currentPost } = Astro.props;
+const { currentTag = "", currentSlug } = Astro.props;
 
-const content = await getCollection("all");
-const tags = content.reduce(sumTags, {});
-const sluggifiedTag = currentTag ? urlToSlug(currentTag) : "";
+const content = await getCollection("articles");
+const entriesPerTag = content.reduce(sumTags, {});
 
 const mostRecentPosts = content
   .toSorted(
@@ -27,12 +27,36 @@ const mostRecentUpdate = content
   )
   .slice(0, 2);
 
-const currentPosts = content
-  .filter((post) => post.data.tags.includes(sluggifiedTag))
-  .map((post) => ({
-    fileName: post.slug,
-    ...post.data,
-  }));
+// const test = {
+//   "code snippets": 2,
+//   frontend: {
+//     components: 2,
+//     atoms: 1,
+//   },
+// };
+
+// type Folders = Record<string, number>;
+
+// const withFolders: Folders | Record<string, Folders> = {};
+
+// const addToFolder = (entry: [string, Entry[]]) => {
+//   const [tagName, entries] = entry;
+//   const splitFoldersFromTagName = tagName.split("/");
+//   const nameWithoutFolder = splitFoldersFromTagName.at(-1)!;
+
+//   if (splitFoldersFromTagName.length === 1) {
+//     withFolders[tagName] = entries.length;
+//     return;
+//   }
+//   splitFoldersFromTagName.slice(0, -1).map((folderName) => {
+//     withFolders[folderName] = withFolders[folderName] ?? {};
+//     withFolders[folderName][nameWithoutFolder] = entries.length;
+//   });
+// };
+
+// Object.entries(entriesPerTag).forEach(addToFolder);
+
+// console.log(withFolders);
 
 //todo: sort
 ---
@@ -74,15 +98,15 @@ const currentPosts = content
       <summary>tags</summary>
       <ul>
         {
-          Object.entries(tags)
-            .toSorted((a, b) => b[1] - a[1])
-            .map(([tagName, amount]) => (
-              <li data-value={tagName} data-amount={amount}>
+          Object.entries(entriesPerTag)
+            .toSorted((a, b) => b[1].length - a[1].length)
+            .map(([tagName, entries]) => (
+              <li data-value={tagName} data-amount={entries.length}>
                 <a
-                  href={`/${slugToUrl(tagName)}`}
+                  href={`/${tagToUrl(tagName)}`}
                   aria-current={tagName === currentTag}
                 >
-                  {tagName} - {amount}
+                  {tagName} - {entries.length}
                 </a>
               </li>
             ))
@@ -91,17 +115,17 @@ const currentPosts = content
     </details>
   </nav>
   {
-    currentPosts.length > 0 && (
+    entriesPerTag[currentTag]?.length > 0 && (
       <nav aria-label="secondary">
         <ul>
-          {currentPosts.map((entry) => (
+          {entriesPerTag[currentTag].map((entry) => (
             <li>
               <a
-                href={`/${sluggifiedTag}/${entry.fileName}`}
-                aria-current={entry.fileName === currentPost}
+                href={`/${tagToUrl(currentTag)}/${removeFolderFromSlug(entry.slug)}`}
+                aria-current={entry.slug === currentSlug}
               >
-                <h3>{entry.title}</h3>
-                <p>{entry.description}</p>
+                <h3>{entry.data.title}</h3>
+                <p>{entry.data.description}</p>
               </a>
             </li>
           ))}

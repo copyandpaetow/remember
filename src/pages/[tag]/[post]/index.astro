@@ -2,51 +2,60 @@
 import { getCollection, getEntry } from "astro:content";
 import Layout from "@layouts/layout.astro";
 import FileStructure from "@layouts/file-structure.astro";
+import WebComponentsLoader from "@layouts/web-component-loader.astro";
 import { sumTags } from "src/content/sum-tags";
-import { slugToUrl } from "src/content/slug-to-url";
+import { tagToUrl, removeFolderFromSlug } from "@content/transform-tags";
 
 export async function getStaticPaths() {
-  const content = await getCollection("all");
+  const content = await getCollection("articles");
+  const entriesPerTag = content.reduce(sumTags, {});
 
-  const tags = content.reduce(sumTags, {});
-
-  return Object.keys(tags).flatMap((tag) =>
-    content
-      .filter((post) => post.data.tags.includes(tag))
-      .map((post) => ({
-        params: {
-          tag: slugToUrl(tag),
-          post: post.slug,
-        },
-        props: {
-          post,
-        },
-      }))
+  return Object.entries(entriesPerTag).flatMap(([tag, entries]) =>
+    entries.map((post) => ({
+      params: {
+        tag: tagToUrl(tag),
+        post: removeFolderFromSlug(post.slug),
+      },
+      props: {
+        post,
+        tag,
+      },
+    }))
   );
 }
-const { post: postComponent } = Astro.props;
-const { tag, post } = Astro.params;
-const { Content } = await postComponent.render();
+const { post, tag } = Astro.props;
+const { Content } = await post.render();
 
-const entry = await getEntry("all", post);
-const { tags, title } = entry.data;
+const { title, relatedContent } = post.data;
+const relatedArticles = await Promise.all(
+  (relatedContent ?? []).map(({ collection, slug }) =>
+    getEntry(collection, slug)
+  )
+);
 ---
 
-<Layout title="">
-  <FileStructure currentTag={tag} currentPost={post}>
+<Layout title={title}>
+  <FileStructure currentTag={tag} currentSlug={post.slug}>
     <header>
       <h1>{title}</h1>
+      <p>related content:</p>
       <ul>
         {
-          tags.map((currentTag) => (
+          relatedArticles.map((entry) => (
             <li>
-              <a href={`/${slugToUrl(currentTag)}/`}>{currentTag}</a>
+              <a
+                href={`/${tagToUrl(entry.data.tags.includes(tag) ? tag : entry.data.tags[0])}/${removeFolderFromSlug(entry.slug)}`}
+              >
+                {entry.data.title}
+              </a>
             </li>
           ))
         }
       </ul>
     </header>
 
-    <Content />
+    <WebComponentsLoader>
+      <Content />
+    </WebComponentsLoader>
   </FileStructure>
 </Layout>

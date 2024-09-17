@@ -1,11 +1,11 @@
 import type { Entry } from "./types";
 
 export const sumTags = (
-  tagsAccumulator: Record<string, number>,
+  tagsAccumulator: Record<string, Entry[]>,
   entry: Entry
 ) => {
   entry.data.tags.forEach((tag) => {
-    tagsAccumulator[tag] = (tagsAccumulator[tag] ?? 0) + 1;
+    tagsAccumulator[tag] = (tagsAccumulator[tag] ?? []).concat(entry);
   });
   return tagsAccumulator;
 };

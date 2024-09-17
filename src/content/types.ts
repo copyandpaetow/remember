@@ -1,3 +1,3 @@
 import type { CollectionEntry } from "astro:content";
 
-export type Entry = CollectionEntry<"all">;
+export type Entry = CollectionEntry<"articles">;
