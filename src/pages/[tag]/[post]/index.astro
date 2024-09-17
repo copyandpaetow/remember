@@ -4,7 +4,7 @@ import Layout from "@layouts/layout.astro";
 import FileStructure from "@layouts/file-structure.astro";
 import WebComponentsLoader from "@layouts/web-component-loader.astro";
 import { sumTags } from "src/content/sum-tags";
-import { tagToUrl, removeFolderFromSlug } from "@content/transform-tags";
+import { tagToUrl, removeNestedFolder } from "@content/transform-tags";
 
 export async function getStaticPaths() {
   const content = await getCollection("articles");
@@ -13,8 +13,8 @@ export async function getStaticPaths() {
   return Object.entries(entriesPerTag).flatMap(([tag, entries]) =>
     entries.map((post) => ({
       params: {
-        tag: tagToUrl(tag),
-        post: removeFolderFromSlug(post.slug),
+        tag: tagToUrl(removeNestedFolder(tag)),
+        post: removeNestedFolder(post.slug),
       },
       props: {
         post,
@@ -44,7 +44,7 @@ const relatedArticles = await Promise.all(
           relatedArticles.map((entry) => (
             <li>
               <a
-                href={`/${tagToUrl(entry.data.tags.includes(tag) ? tag : entry.data.tags[0])}/${removeFolderFromSlug(entry.slug)}`}
+                href={`/${tagToUrl(entry.data.tags.includes(tag) ? removeNestedFolder(tag) : removeNestedFolder(entry.data.tags[0]))}/${removeNestedFolder(entry.slug)}`}
               >
                 {entry.data.title}
               </a>

@@ -3,14 +3,16 @@ import { getCollection } from "astro:content";
 import Layout from "@layouts/layout.astro";
 import FileStructure from "@layouts/file-structure.astro";
 import { sumTags } from "@content/sum-tags";
-import { tagToUrl } from "@content/transform-tags";
+import { removeNestedFolder, tagToUrl } from "@content/transform-tags";
 
 export async function getStaticPaths() {
   const content = await getCollection("articles");
   const entriesPerTag = content.reduce(sumTags, {});
 
+  console.log(entriesPerTag);
+
   return Object.entries(entriesPerTag).map(([tag]) => ({
-    params: { tag: tagToUrl(tag) },
+    params: { tag: tagToUrl(removeNestedFolder(tag)) },
     props: {
       tag,
     },

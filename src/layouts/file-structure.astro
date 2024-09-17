@@ -1,8 +1,9 @@
 ---
 import { getCollection } from "astro:content";
 import { sumTags } from "@content/sum-tags";
-import { tagToUrl, removeFolderFromSlug } from "@content/transform-tags";
-import type { Entry } from "@content/types";
+import { tagToUrl, removeNestedFolder } from "@content/transform-tags";
+import NestedFolders from "./folder-structure.astro";
+import type { Folders } from "@content/types";
 
 interface Props {
   currentTag?: string;
@@ -27,38 +28,35 @@ const mostRecentUpdate = content
   )
   .slice(0, 2);
 
-// const test = {
-//   "code snippets": 2,
-//   frontend: {
-//     components: 2,
-//     atoms: 1,
-//   },
-// };
+const folders = Object.entries(entriesPerTag).reduce(
+  (accumulator, [tag, entries]) => {
+    if (!tag.includes("/")) {
+      accumulator[tag] = entries;
+      return accumulator;
+    }
 
-// type Folders = Record<string, number>;
+    let reference = accumulator;
+    tag.split("/").forEach((folder, index, array) => {
+      if (index === array.length - 1) {
+        reference[folder] = entries;
+        return;
+      }
 
-// const withFolders: Folders | Record<string, Folders> = {};
+      reference[folder] ??= {};
+      //@ts-expect-error
+      reference = reference[folder];
+    });
+    return accumulator;
+  },
+  {} as Folders | Record<string, Folders>
+);
 
-// const addToFolder = (entry: [string, Entry[]]) => {
-//   const [tagName, entries] = entry;
-//   const splitFoldersFromTagName = tagName.split("/");
-//   const nameWithoutFolder = splitFoldersFromTagName.at(-1)!;
-
-//   if (splitFoldersFromTagName.length === 1) {
-//     withFolders[tagName] = entries.length;
-//     return;
-//   }
-//   splitFoldersFromTagName.slice(0, -1).map((folderName) => {
-//     withFolders[folderName] = withFolders[folderName] ?? {};
-//     withFolders[folderName][nameWithoutFolder] = entries.length;
-//   });
-// };
-
-// Object.entries(entriesPerTag).forEach(addToFolder);
-
-// console.log(withFolders);
-
-//todo: sort
+//todo: add search
+//todo: add folders
+//todo: make columns responsive
+//todo: the sidebar needs to be collapsible as well on interaction. Maybe even with a param to facilitate a better reading experience
+//todo: we might also think about an inpage nav (maybe sticky on top)? We cant fit another column
+//todo: recreate bears reference functionality => [^1] is displayed as a <sup>1<sup> and on click it scrolls the page to the bottom where the content block with another [^1] is, while also highlighting it on yellow briefly
 ---
 
 <body>
@@ -70,7 +68,9 @@ const mostRecentUpdate = content
         {
           mostRecentPosts.map((recentPost) => (
             <li>
-              <a href={`/${recentPost.data.tags[0]}/`}>
+              <a
+                href={`/${tagToUrl(recentPost.data.tags[0])}/${removeNestedFolder(recentPost.slug)}`}
+              >
                 {recentPost.data.title}
               </a>
             </li>
@@ -85,7 +85,9 @@ const mostRecentUpdate = content
           <ul>
             {mostRecentUpdate.map((recentPost) => (
               <li>
-                <a href={`/${recentPost.data.tags[0]}/`}>
+                <a
+                  href={`/${tagToUrl(recentPost.data.tags[0])}/${removeNestedFolder(recentPost.slug)}`}
+                >
                   {recentPost.data.title}
                 </a>
               </li>
@@ -94,25 +96,13 @@ const mostRecentUpdate = content
         </details>
       )
     }
-    <details open>
-      <summary>tags</summary>
-      <ul>
-        {
-          Object.entries(entriesPerTag)
-            .toSorted((a, b) => b[1].length - a[1].length)
-            .map(([tagName, entries]) => (
-              <li data-value={tagName} data-amount={entries.length}>
-                <a
-                  href={`/${tagToUrl(tagName)}`}
-                  aria-current={tagName === currentTag}
-                >
-                  {tagName} - {entries.length}
-                </a>
-              </li>
-            ))
-        }
-      </ul>
-    </details>
+
+    <NestedFolders
+      folders={folders}
+      currentTag={currentTag}
+      level={0}
+      name="tags"
+    />
   </nav>
   {
     entriesPerTag[currentTag]?.length > 0 && (
@@ -121,7 +111,7 @@ const mostRecentUpdate = content
           {entriesPerTag[currentTag].map((entry) => (
             <li>
               <a
-                href={`/${tagToUrl(currentTag)}/${removeFolderFromSlug(entry.slug)}`}
+                href={`/${tagToUrl(removeNestedFolder(currentTag))}/${removeNestedFolder(entry.slug)}`}
                 aria-current={entry.slug === currentSlug}
               >
                 <h3>{entry.data.title}</h3>

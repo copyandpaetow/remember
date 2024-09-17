@@ -1,0 +1,52 @@
+---
+import { tagToUrl, removeNestedFolder } from "@content/transform-tags";
+import type { Folders } from "@content/types";
+
+interface Props {
+  currentTag: string;
+  folders: Folders | Record<string, Folders>;
+  level: number;
+  name: string;
+}
+
+const { currentTag, folders, level, name } = Astro.props;
+---
+
+<details open>
+  <summary>{name}</summary>
+  <ul style=`--level:${level}`>
+    {
+      Object.entries(folders).map(([tagName, entriesOrFolder]) => {
+        if (Array.isArray(entriesOrFolder)) {
+          return (
+            <li data-value={tagName} data-amount={entriesOrFolder.length}>
+              <a
+                href={`/${tagToUrl(tagName)}`}
+                aria-current={tagName === removeNestedFolder(currentTag)}
+              >
+                {tagName} - {entriesOrFolder.length}
+              </a>
+            </li>
+          );
+        }
+        return (
+          <li>
+            <Astro.self
+              currentTag={currentTag}
+              folders={folders[tagName] as Folders}
+              level={level + 1}
+              name={tagName}
+            />
+          </li>
+        );
+      })
+    }
+  </ul>
+</details>
+
+<style>
+  ul,
+  summary {
+    padding-inline-start: calc(var(--level) * 8px);
+  }
+</style>

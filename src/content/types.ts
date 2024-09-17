@@ -1,3 +1,5 @@
 import type { CollectionEntry } from "astro:content";
 
 export type Entry = CollectionEntry<"articles">;
+
+export type Folders = Record<string, Entry[]>;
