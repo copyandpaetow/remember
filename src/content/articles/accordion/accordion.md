@@ -1,6 +1,7 @@
 ---
 title: "Accordion"
 tags:
+  - "test1/test2/test3/final"
   - "frontend/component"
   - "atom"
   - "code snippet"

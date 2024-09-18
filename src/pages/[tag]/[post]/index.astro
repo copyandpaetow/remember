@@ -1,10 +1,13 @@
 ---
 import { getCollection, getEntry } from "astro:content";
 import Layout from "@layouts/layout.astro";
-import FileStructure from "@layouts/file-structure.astro";
+import ColumnStructure from "@layouts/sidebar/columns.astro";
 import WebComponentsLoader from "@layouts/web-component-loader.astro";
-import { sumTags } from "src/content/sum-tags";
-import { tagToUrl, removeNestedFolder } from "@content/transform-tags";
+import { sumTags } from "@content/transform-data/sum-tags";
+import {
+  tagToUrl,
+  removeNestedFolder,
+} from "@content/transform-data/transform-tags";
 
 export async function getStaticPaths() {
   const content = await getCollection("articles");
@@ -35,7 +38,7 @@ const relatedArticles = await Promise.all(
 ---
 
 <Layout title={title}>
-  <FileStructure currentTag={tag} currentSlug={post.slug}>
+  <ColumnStructure currentTag={tag} currentSlug={post.slug}>
     <header>
       <h1>{title}</h1>
       <p>related content:</p>
@@ -57,5 +60,5 @@ const relatedArticles = await Promise.all(
     <WebComponentsLoader>
       <Content />
     </WebComponentsLoader>
-  </FileStructure>
+  </ColumnStructure>
 </Layout>

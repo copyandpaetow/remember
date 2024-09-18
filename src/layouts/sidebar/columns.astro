@@ -1,0 +1,215 @@
+---
+import { getCollection } from "astro:content";
+import { sumTags } from "@content/transform-data/sum-tags";
+import {
+  tagToUrl,
+  removeNestedFolder,
+} from "@content/transform-data/transform-tags";
+import NestedFolders from "./nested-folders.astro";
+import type { Folders, Entry } from "@content/types";
+import { normalizeCollection } from "@content/transform-data/normalize-collection";
+
+interface Props {
+  currentTag?: string;
+  currentSlug?: string;
+}
+
+const options = {
+  year: "numeric",
+  month: "2-digit",
+  day: "numeric",
+} satisfies Intl.DateTimeFormatOptions;
+
+const { currentTag = "", currentSlug } = Astro.props;
+
+const content = await getCollection("articles");
+const entriesPerTag = content.reduce(sumTags, {});
+
+const mostRecentPosts = content
+  .toSorted(
+    (a, b) => b.data.creationDate.getTime() - a.data.creationDate.getTime()
+  )
+  .slice(0, 2);
+
+const mostRecentUpdate = content
+  .filter((post) => post.data.updateDate)
+  .toSorted(
+    (a, b) => b.data.updateDate!.getTime() - a.data.updateDate!.getTime()
+  )
+  .slice(0, 2);
+
+const folders = Object.entries(entriesPerTag).reduce(
+  (accumulator, [tag, entries]) => {
+    if (!tag.includes("/")) {
+      accumulator[tag] = entries;
+      return accumulator;
+    }
+
+    let reference = accumulator;
+    tag.split("/").forEach((folder, index, array) => {
+      if (index === array.length - 1) {
+        reference[folder] = entries;
+        return;
+      }
+
+      reference[folder] ??= {};
+      //@ts-expect-error
+      reference = reference[folder];
+    });
+    return accumulator;
+  },
+  {} as Folders | Record<string, Folders>
+);
+
+//todo: we need to find an alternative to the tag/post structure as it is confusing that several different tags lead to the same post
+
+//todo: make columns responsive
+//todo: the sidebar needs to be collapsible as well on interaction. Maybe even with a param to facilitate a better reading experience
+//todo: we might also think about an inpage nav (maybe sticky on top / bottom where it scrolls horizontally)? We cant fit another column
+// => Alternatively we can add another column but need to scroll the page so that the first column is scroll out of the viewport
+//todo: recreate bears reference functionality => [^1] is displayed as a <sup>1<sup> and on click it scrolls the page to the bottom where the content block with another [^1] is, while also highlighting it on yellow briefly
+---
+
+<script>
+  const form = document.getElementById("search-form") as HTMLFormElement;
+  const searchResults = document.getElementById(
+    "search-results"
+  ) as HTMLUListElement;
+
+  const filterContent = (searchPhrase: string) => {
+    const splitSearchPhrase = searchPhrase
+      .split(" ")
+      .map((searchWord) => searchWord.toLowerCase());
+
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams(url.search);
+    params.set("q", searchPhrase);
+
+    const newUrl = `${url.pathname}?${params.toString()}`;
+    window.history.pushState({}, "", newUrl);
+
+    (Array.from(searchResults.children) as HTMLElement[]).forEach((child) => {
+      const anchor = child.querySelector("a");
+      const words =
+        anchor?.innerText
+          .split("\n")
+          .filter(Boolean)
+          .flatMap((line) => line.split(" ")) ?? [];
+
+      const matches = words.some((word) =>
+        splitSearchPhrase.includes(word.toLowerCase())
+      );
+
+      requestAnimationFrame(() => {
+        child.style.display = matches ? "" : "none";
+      });
+    });
+  };
+
+  const url = new URL(window.location.href);
+  const params = new URLSearchParams(url.search);
+
+  if (params.has("q")) {
+    const searchPhrase = params.get("q") as string;
+    (form.querySelector("input[name='q']") as HTMLInputElement).value =
+      searchPhrase;
+    filterContent(searchPhrase);
+  }
+
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const searchPhrase = String(new FormData(form).get("q") ?? "");
+    console.log(searchPhrase);
+  });
+</script>
+
+<body>
+  <nav>
+    <h1>Content</h1>
+    <a href="/">home</a>
+
+    <NestedFolders
+      folders={folders}
+      currentTag={currentTag}
+      level={0}
+      name="tags"
+    />
+  </nav>
+  {
+    entriesPerTag[currentTag]?.length > 0 ? (
+      <nav aria-label="secondary">
+        <ul>
+          {entriesPerTag[currentTag].map((entry) => (
+            <li>
+              <a
+                href={`/${tagToUrl(removeNestedFolder(currentTag))}/${removeNestedFolder(entry.slug)}`}
+                aria-current={entry.slug === currentSlug}
+              >
+                <h3>{entry.data.title}</h3>
+                <p>
+                  {(
+                    entry.data.updateDate ?? entry.data.creationDate
+                  ).toLocaleDateString("de-DE", options)}
+                </p>
+                <p>{entry.data.description}</p>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    ) : (
+      <nav aria-label="secondary">
+        <search>
+          <form id="search-form" method="GET" action="">
+            <label for="content">Find content</label>
+            <input type="search" id="content" name="q" />
+            <button type="submit">Search</button>
+            <select name="filter" id="filter">
+              <option>date</option>
+              <option selected>abc</option>
+            </select>
+          </form>
+        </search>
+        <ul id="search-results">
+          {content.map((entry) => (
+            <li>
+              <a
+                href={`/${tagToUrl(removeNestedFolder(entry.data.tags[0]))}/${removeNestedFolder(entry.slug)}`}
+                aria-current={entry.slug === currentSlug}
+              >
+                <h3>{entry.data.title}</h3>
+                <p>
+                  {(
+                    entry.data.updateDate ?? entry.data.creationDate
+                  ).toLocaleDateString("de-DE", options)}
+                </p>
+                <p>{entry.data.description}</p>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )
+  }
+
+  <main>
+    <slot />
+  </main>
+</body>
+
+<style>
+  nav {
+    padding: 2em;
+    border-inline-end: 2px solid black;
+  }
+
+  main {
+    padding: 2em;
+  }
+
+  body {
+    display: grid;
+    grid-template-columns: max-content minmax(12em, 1fr) 4fr;
+    grid-auto-flow: column;
+  }
+</style>
