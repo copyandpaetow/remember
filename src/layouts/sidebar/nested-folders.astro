@@ -21,14 +21,11 @@ const { currentTag, folders, level, name } = Astro.props;
     {
       Object.entries(folders).map(([tagName, entriesOrFolder]) => {
         if (Array.isArray(entriesOrFolder)) {
+          const saveTagName = tagToUrl(tagName);
           return (
-            <li data-value={tagName} data-amount={entriesOrFolder.length}>
-              <a
-                href={`/${tagToUrl(tagName)}`}
-                aria-current={tagName === removeNestedFolder(currentTag)}
-              >
-                {tagName} - {entriesOrFolder.length}
-              </a>
+            <li data-value={saveTagName} data-amount={entriesOrFolder.length}>
+              <input type="checkbox" id={saveTagName} name={saveTagName} />
+              <label for={saveTagName}>{tagName}</label>
             </li>
           );
         }

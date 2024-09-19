@@ -1,13 +1,12 @@
 ---
-import { getCollection } from "astro:content";
 import { sumTags } from "@content/transform-data/sum-tags";
 import {
-  tagToUrl,
   removeNestedFolder,
+  tagToUrl,
 } from "@content/transform-data/transform-tags";
+import type { Folders } from "@content/types";
+import { getCollection } from "astro:content";
 import NestedFolders from "./nested-folders.astro";
-import type { Folders, Entry } from "@content/types";
-import { normalizeCollection } from "@content/transform-data/normalize-collection";
 
 interface Props {
   currentTag?: string;
@@ -25,18 +24,24 @@ const { currentTag = "", currentSlug } = Astro.props;
 const content = await getCollection("articles");
 const entriesPerTag = content.reduce(sumTags, {});
 
-const mostRecentPosts = content
-  .toSorted(
-    (a, b) => b.data.creationDate.getTime() - a.data.creationDate.getTime()
-  )
-  .slice(0, 2);
+const allTags = new Set(
+  content
+    .flatMap((entry) => entry.data.tags)
+    .map(removeNestedFolder)
+    .map(tagToUrl)
+);
 
-const mostRecentUpdate = content
-  .filter((post) => post.data.updateDate)
-  .toSorted(
-    (a, b) => b.data.updateDate!.getTime() - a.data.updateDate!.getTime()
-  )
-  .slice(0, 2);
+const cssFilterLogic = `
+  ${[...allTags]
+    .map(
+      (tag) => `
+      :has(#${tag}:checked) #search-results li:not([data-tags~=${tag}]) {
+        display: none;
+      }
+    `
+    )
+    .join("")}
+`;
 
 const folders = Object.entries(entriesPerTag).reduce(
   (accumulator, [tag, entries]) => {
@@ -62,12 +67,17 @@ const folders = Object.entries(entriesPerTag).reduce(
 );
 
 //todo: we need to find an alternative to the tag/post structure as it is confusing that several different tags lead to the same post
+//=> one option would be to replace the links of the first column with checkboxes (as filters), give the articles in the list of the second column a data-variable="tag1 tag2..."
+//and use the has selector to select them. With JS we could set the checkboxes etc onload/onsearch
 
 //todo: make columns responsive
 //todo: the sidebar needs to be collapsible as well on interaction. Maybe even with a param to facilitate a better reading experience
 //todo: we might also think about an inpage nav (maybe sticky on top / bottom where it scrolls horizontally)? We cant fit another column
 // => Alternatively we can add another column but need to scroll the page so that the first column is scroll out of the viewport
-//todo: recreate bears reference functionality => [^1] is displayed as a <sup>1<sup> and on click it scrolls the page to the bottom where the content block with another [^1] is, while also highlighting it on yellow briefly
+//todo: recreate bears reference functionality => [^1] is displayed as a <sup>1<sup> and on click it scrolls the page to the bottom
+//where the content block with another [^1] is, while also highlighting it on yellow briefly
+//todo: add a 404 page and a empty results component
+//todo: would be nice to have the /latest redirecting to the latest article
 ---
 
 <script>
@@ -77,6 +87,10 @@ const folders = Object.entries(entriesPerTag).reduce(
   ) as HTMLUListElement;
 
   const filterContent = (searchPhrase: string) => {
+    if (!searchPhrase.trim()) {
+      return;
+    }
+
     const splitSearchPhrase = searchPhrase
       .split(" ")
       .map((searchWord) => searchWord.toLowerCase());
@@ -101,7 +115,9 @@ const folders = Object.entries(entriesPerTag).reduce(
       );
 
       requestAnimationFrame(() => {
-        child.style.display = matches ? "" : "none";
+        matches
+          ? child.removeAttribute("hidden")
+          : child.setAttribute("hidden", "");
       });
     });
   };
@@ -119,12 +135,13 @@ const folders = Object.entries(entriesPerTag).reduce(
   form?.addEventListener("submit", (event) => {
     event.preventDefault();
     const searchPhrase = String(new FormData(form).get("q") ?? "");
+    filterContent(searchPhrase);
     console.log(searchPhrase);
   });
 </script>
 
 <body>
-  <nav>
+  <nav class="first-column">
     <h1>Content</h1>
     <a href="/">home</a>
 
@@ -136,32 +153,11 @@ const folders = Object.entries(entriesPerTag).reduce(
     />
   </nav>
   {
-    entriesPerTag[currentTag]?.length > 0 ? (
-      <nav aria-label="secondary">
-        <ul>
-          {entriesPerTag[currentTag].map((entry) => (
-            <li>
-              <a
-                href={`/${tagToUrl(removeNestedFolder(currentTag))}/${removeNestedFolder(entry.slug)}`}
-                aria-current={entry.slug === currentSlug}
-              >
-                <h3>{entry.data.title}</h3>
-                <p>
-                  {(
-                    entry.data.updateDate ?? entry.data.creationDate
-                  ).toLocaleDateString("de-DE", options)}
-                </p>
-                <p>{entry.data.description}</p>
-              </a>
-            </li>
-          ))}
-        </ul>
-      </nav>
-    ) : (
-      <nav aria-label="secondary">
+    (
+      <nav aria-label="secondary" class="second-column">
         <search>
           <form id="search-form" method="GET" action="">
-            <label for="content">Find content</label>
+            <label for="content">Filter content</label>
             <input type="search" id="content" name="q" />
             <button type="submit">Search</button>
             <select name="filter" id="filter">
@@ -172,9 +168,14 @@ const folders = Object.entries(entriesPerTag).reduce(
         </search>
         <ul id="search-results">
           {content.map((entry) => (
-            <li>
+            <li
+              data-tags={entry.data.tags
+                .map(removeNestedFolder)
+                .map(tagToUrl)
+                .join(" ")}
+            >
               <a
-                href={`/${tagToUrl(removeNestedFolder(entry.data.tags[0]))}/${removeNestedFolder(entry.slug)}`}
+                href={`/${removeNestedFolder(entry.slug)}`}
                 aria-current={entry.slug === currentSlug}
               >
                 <h3>{entry.data.title}</h3>
@@ -192,10 +193,12 @@ const folders = Object.entries(entriesPerTag).reduce(
     )
   }
 
-  <main>
-    <slot />
+  <main tabindex={Astro.slots.has("default") ? 0 : -1}>
+    <slot> <p>so empty</p></slot>
   </main>
 </body>
+
+<style set:html={cssFilterLogic}></style>
 
 <style>
   nav {

@@ -16,7 +16,6 @@ export async function getStaticPaths() {
   return Object.entries(entriesPerTag).flatMap(([tag, entries]) =>
     entries.map((post) => ({
       params: {
-        tag: tagToUrl(removeNestedFolder(tag)),
         post: removeNestedFolder(post.slug),
       },
       props: {
@@ -46,9 +45,7 @@ const relatedArticles = await Promise.all(
         {
           relatedArticles.map((entry) => (
             <li>
-              <a
-                href={`/${tagToUrl(entry.data.tags.includes(tag) ? removeNestedFolder(tag) : removeNestedFolder(entry.data.tags[0]))}/${removeNestedFolder(entry.slug)}`}
-              >
+              <a href={`/${removeNestedFolder(entry.slug)}`}>
                 {entry.data.title}
               </a>
             </li>
